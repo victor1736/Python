@@ -1,21 +1,26 @@
-from fastapi import FastAPI, Body , Path, Query
+from fastapi import FastAPI, Body , Path, Query,Depends
 from fastapi.responses import HTMLResponse, JSONResponse
-from models import Movie
+from models import Movie,User, JWTbearer
 from typing import  List
 from config import create_configuration_fastapi
 from data import movies
+from jwt_manager import create_token
+
 
 app = FastAPI()
 create_configuration_fastapi(app)
-
-
-
 
 @app.get('/',tags=['home'])
 def message():
     return HTMLResponse('<h1>Hello world</h1>')
 
-@app.get('/movies', tags=['movies'], response_model=List[Movie],status_code=200)
+@app.post('/login', tags=['auth'])
+def login(user: User):
+    if user.email == "admin@gmail.com"  and user.password == "admin":
+        token: str = create_token(user.dict())
+        return JSONResponse(status_code=200, content=token)
+
+@app.get('/movies', tags=['movies'], response_model=List[Movie],status_code=200 , dependencies=[Depends(JWTbearer())])
 def get_movies() -> List[Movie]:
     return JSONResponse(status_code=200, content=movies)
 
@@ -24,7 +29,7 @@ def get_movie(id: int = Path(ge=1,le=2000)) ->Movie:
     for item in movies:
         if item["id"]==id:
             return JSONResponse(content=item)
-    return JSONResponse(content=[])
+    return JSONResponse(status_code=404,content=[])
 
 @app.get('/movies/', tags=['movies'],response_model=List[Movie])
 def get_movies_by_category(category : str = Query(min_length=5,max_length=15))->List [Movie]:
